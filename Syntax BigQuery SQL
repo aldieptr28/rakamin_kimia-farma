@@ -1,46 +1,46 @@
--- Membuat tabel analitik baru di dataset kimia_farma
-CREATE TABLE `kimia_farma.kimia_farma_analytics` AS
+
+CREATE OR REPLACE TABLE `rakamin-kf-analytics-458911.kimia_farma.kimia_farma_analytics` AS
 SELECT 
-    ft.transaction_id,  -- ID transaksi dari tabel transaksi final
-    ft.date,  -- Tanggal transaksi
-    ft.branch_id,  -- ID cabang tempat transaksi dilakukan
-    kc.branch_name,  -- Nama cabang
-    kc.kota,  -- Kota lokasi cabang
-    kc.provinsi,  -- Provinsi lokasi cabang
-    kc.rating AS rating_cabang,  -- Rating cabang
-    ft.customer_name,  -- Nama pelanggan
+    t.transaction_id,  -- ID transaksi
+    t.date,  -- Tanggal transaksi
+    t.branch_id,  -- ID cabang
+    b.branch_name,  -- Nama cabang
+    b.kota,  -- Kota cabang
+    b.provinsi,  -- Provinsi cabang
+    b.rating AS rating_cabang,  -- Rating cabang (alias untuk rating)
+    t.customer_name,  -- Nama customer
     p.product_id,  -- ID produk
     p.product_name,  -- Nama produk
-    p.price AS actual_price,  -- Harga asli produk
-    ft.discount_percentage,  -- Persentase diskon yang diberikan
+    p.price AS actual_price,  -- Harga produk sebelum diskon
+    t.discount_percentage,  -- Persentase diskon
 
-    -- Menghitung persentase laba kotor berdasarkan harga produk
+    -- Menghitung persentase gross laba berdasarkan harga produk
     CASE
-        WHEN p.price <= 50000 THEN 0.1
-        WHEN p.price BETWEEN 50000 AND 100000 THEN 0.15
-        WHEN p.price BETWEEN 100000 AND 300000 THEN 0.2
-        WHEN p.price BETWEEN 300000 AND 500000 THEN 0.25
-        WHEN p.price > 500000 THEN 0.3
+        WHEN p.price <= 50000 THEN 10
+        WHEN p.price > 50000 AND p.price <= 100000 THEN 15
+        WHEN p.price > 100000 AND p.price <= 300000 THEN 20
+        WHEN p.price > 300000 AND p.price <= 500000 THEN 25
+        WHEN p.price > 500000 THEN 30
     END AS persentase_gross_laba,
 
-    -- Menghitung penjualan bersih (harga setelah diskon)
-    (p.price * (1 - ft.discount_percentage)) AS nett_sales,
+    p.price * (1 - t.discount_percentage / 100) AS nett_sales,
 
-    -- Menghitung laba bersih (penjualan bersih dikalikan persentase laba kotor)
-    (p.price * (1 - ft.discount_percentage) *
-    CASE
-        WHEN p.price <= 50000 THEN 0.1
-        WHEN p.price BETWEEN 50000 AND 100000 THEN 0.15
-        WHEN p.price BETWEEN 100000 AND 300000 THEN 0.2
-        WHEN p.price BETWEEN 300000 AND 500000 THEN 0.25
-        ELSE 0.3
-    END) AS nett_profit
+    (p.price * (1 - t.discount_percentage / 100)) * 
+    (CASE
+        WHEN p.price <= 50000 THEN 10
+        WHEN p.price > 50000 AND p.price <= 100000 THEN 15
+        WHEN p.price > 100000 AND p.price <= 300000 THEN 20
+        WHEN p.price > 300000 AND p.price <= 500000 THEN 25
+        WHEN p.price > 500000 THEN 30
+    END / 100) AS nett_profit,
+    t.rating AS rating_transaksi  -- Rating transaksi 
 
-FROM
-    kimia_farma.kf_final_transaction AS ft  -- Tabel transaksi utama
-JOIN
-    kimia_farma.kf_kantor_cabang AS kc  -- Tabel data cabang
-    ON ft.branch_id = kc.branch_id  -- Join berdasarkan ID cabang
-JOIN
-    kimia_farma.kf_product AS p  -- Tabel data produk
-    ON ft.product_id = p.product_id;  -- Join berdasarkan ID produk
+FROM 
+    `rakamin-kf-analytics-458911.kimia_farma.kf_final_transaction` t  -- Tabel transaksi
+JOIN 
+    `rakamin-kf-analytics-458911.kimia_farma.kf_kantor_cabang` b  -- Tabel cabang
+    ON t.branch_id = b.branch_id  --  berdasarkan branch_id
+JOIN 
+    `rakamin-kf-analytics-458911.kimia_farma.kf_product` p  -- Tabel produk
+    ON t.product_id = p.product_id;  --  berdasarkan product_id
+				
